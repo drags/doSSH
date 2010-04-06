@@ -1,20 +1,20 @@
 #!/usr/bin/perl -w
 use Getopt::Std;
+use POSIX;
 use File::Basename;
 use strict;
 
-# declare vars
 my (@servers, @exec_servers); 
 
-# get user to connect as, filter for list
-our ($opt_u, $opt_f);
-getopts('u:f:');
+# user to connect as, filter for list
+my %options;
+getopts('u:f:',\%options);
 
 # user to send to, file, location, server filter
-my $user = $opt_u?$opt_u:'root';
+my $user = $options{'u'}?$options{'u'}:'root';
 my $file = $ARGV[1];
 my $location = exists($ARGV[2])?$ARGV[2]:'';
-my $filter = $opt_f?$opt_f:'.';
+my $filter = $options{'f'}?$options{'f'}:'.';
 
 # find list
 my $lists_dir = dirname($0) . '/lists/';
@@ -24,12 +24,8 @@ if (! -e $list) {
 	die ("List file $list does not exist!\n");
 }
 
-if (! -r $list) {
-	die ("Unable to read from $list.\n");
-}
-
 # grab server list into array
-open (SERVS, "<$list") or die "Sorry, can't find list $list.";
+open (SERVS, "<$list") or die "Sorry, can't read from list $list.";
 chomp (@servers = <SERVS>); 
 
 # filter server list based on all filters
@@ -41,6 +37,7 @@ foreach (@exec_servers) {
 	m/^#/ && next;
 	print "Sending $file to $hostname...\n";
 	system "scp $file $user\@$ip:$location";
+	WIFSIGNALED($?) && &Oops;
 }
 
 
@@ -59,5 +56,19 @@ sub FilterList {
 		push(@wanted_servers, @filter_true);
 	}
 	return @wanted_servers;
+}
+
+sub Oops {
+	my (@fortunes, $frtn);
+	open (FRTN, "fortunes.dat");
+	chomp (@fortunes = <FRTN>);
+	if (scalar @fortunes > 0) {
+		$frtn = $fortunes[int rand ($#fortunes + 1)];
+	} else {
+		$frtn = "Shit...";
+	}
+	print "\n" . $frtn . "\n";
+	close (FRTN);
+	exit (0);
 }
 

@@ -4,13 +4,16 @@ use POSIX;
 use File::Basename;
 use strict;
 
-# declare vars
 my (@servers, @exec_servers); 
 
-# get user to connect as, filter for list
-our ($opt_u, $opt_f);
-getopts('u:f:');
+# options: user, filter, save output to
+my %options;
+getopts('u:f:s:',\%options);
 
+unless (@ARGV>0) {
+	&Usage;
+	exit;
+}
 # find list
 my $lists_dir = dirname($0) . '/lists/';
 my $list = $lists_dir . 'list.' . $ARGV[0];
@@ -19,17 +22,14 @@ if (! -e $list) {
 	die ("List file $list does not exist!\n");
 }
 
-if (! -r $list) {
-	die ("Unable to read from $list.\n");
-}
-
-# user, filter, command to run remotely
-my $user = $opt_u?$opt_u:'root';
-my $filter = $opt_f?$opt_f:'.';
+#filter defaults to , as drop-thru regex
+my $user = $options{'u'}?$options{'u'}:'root';
+my $filter = $options{'f'}?$options{'f'}:'.';
 my $cmd = $ARGV[1]?$ARGV[1]:'';
+my $outputfile = $options{'s'}?$options{'s'}:undef;
 
 # read in the server list
-open (SERVS, "<$list") or die "Sorry, can't find list $list.";
+open (SERVS, "<$list") or die "Unable to open $list.";
 chomp(@servers = <SERVS>); 
 
 # filter server list based on all filters
@@ -37,11 +37,25 @@ chomp(@servers = <SERVS>);
 
 # foreach server, run the command
 foreach (@exec_servers) {
-	my ($hostname, $ip) = split /,/;
 	m/^#/ && next;
+	my ($hostname, $ip) = split /,/;
+
+	if ($outputfile) {
+		my $fn = dirname($0) . '/output/' . $outputfile . "." . $hostname;
+		open SRVOUT, '>', $fn or die "Unable to open output file $fn\n";
+	}
+
 	print "================= $_ =================\n";
-	system "ssh $user\@$ip \"$cmd\"";
+
+	my $out = `ssh $user\@$ip \"$cmd\"`;
+	print $out;
 	WIFSIGNALED($?) && &Oops;
+
+	if ($outputfile) {
+		print SRVOUT $out;
+		close SRVOUT;
+	}
+
 	print "========================== fin =========================\n";
 }
 
@@ -78,3 +92,14 @@ sub Oops {
 	exit (0);
 }
 
+sub Usage {
+	print <<USE;
+Usage: $0 [-u user] [-f filter] [-s file prefix] list-name [cmd]
+	-u user: user to connect as
+	-f tilter: filter server list for servers only matching /filter/ (regex). Commas indicate multiple filters.
+	-s file prefix: will save output from command to output/file-prefix.hostname
+	list-name: suffix of list in lists/ e.g. app for list.app
+	cmd: command to run. Optional; no command given causes doSSH to connect to each host in a row, same as "ssh host"
+USE
+
+}
