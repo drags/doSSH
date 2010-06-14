@@ -4,9 +4,10 @@ use POSIX;
 use File::Basename;
 use strict;
 
+# declare vars
 my (@servers, @exec_servers); 
 
-# user to connect as, filter for list
+# get user to connect as, filter for list
 my %options;
 getopts('u:f:',\%options);
 

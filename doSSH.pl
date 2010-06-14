@@ -46,7 +46,9 @@ foreach (@exec_servers) {
 	}
 
 	print "================= $_ =================\n";
-
+#
+#	print "ssh $user\@$ip \"$cmd\"";
+#	exit;
 	my $out = `ssh $user\@$ip \"$cmd\"`;
 	print $out;
 	WIFSIGNALED($?) && &Oops;
